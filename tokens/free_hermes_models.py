@@ -328,22 +328,48 @@ def _filter_notes(notes: list[str], providers: list[str]) -> list[str]:
     return [note for note in notes if note.lower().startswith(allowed_prefixes)]
 
 
-def _print_inventory(entries: list[ModelEntry], notes: list[str]) -> None:
-    print("CONNECTED FREE MODELS")
-    by_provider: dict[str, list[ModelEntry]] = {}
-    for entry in entries:
-        by_provider.setdefault(entry.display_provider, []).append(entry)
+def _term_short_detail(text: str, limit: int = 50) -> str:
+    """Truncate detail strings for terminal table cells."""
+    cleaned = str(text or "").replace("\n", " ").replace("\r", " ").strip()
+    while "  " in cleaned:
+        cleaned = cleaned.replace("  ", " ")
+    if len(cleaned) <= limit:
+        return cleaned
+    truncated = cleaned[: limit - 3].rsplit(" ", 1)[0] if " " in cleaned[:limit] else cleaned[: limit - 3]
+    return truncated + "..."
 
-    for display in ["OpenRouter", "Nous", "OpenCode Zen", "openai-codex", "copilot", "deepseek"]:
-        items = by_provider.get(display, [])
-        if not items:
-            continue
-        suffix = ""
-        if display == "Nous":
-            suffix = next((f" [{note.replace('Nous ', '')}]" for note in notes if note.startswith("Nous free tier=")), "")
-        print(f"{display} ({len(items)}){suffix}")
-        for entry in items:
-            print(f"  - {entry.model}")
+
+def _print_inventory(entries: list[ModelEntry], notes: list[str]) -> None:
+    """Print connected free models as aligned pipe-delimited tables inside code fences."""
+    nous_tier = next((note.replace("Nous free tier=", "") for note in notes if note.startswith("Nous free tier=")), "")
+    rows: list[tuple[str, str]] = [(entry.display_provider, entry.model) for entry in entries]
+
+    if not rows:
+        print("CONNECTED FREE MODELS: none found")
+        return
+
+    COL_W = [20, 60]
+    HEADERS = ["Provider", "Model"]
+
+    title = "CONNECTED FREE MODELS" + (f"  [{nous_tier}]" if nous_tier else "")
+    print(title)
+    print()
+    print("```")
+
+    parts = []
+    for cw in COL_W:
+        parts.append("-" * (cw + 2))
+    sep_line = "|" + "|".join(parts) + "|"
+    hdr = "| " + " | ".join(h.ljust(cw) for h, cw in zip(HEADERS, COL_W)) + " |"
+    print(hdr)
+    print(sep_line)
+
+    for prov, model in rows:
+        p = prov[: COL_W[0]]
+        m = _term_short_detail(model, COL_W[1])
+        print("| " + p.ljust(COL_W[0]) + " | " + m.ljust(COL_W[1]) + " |")
+
+    print("```")
 
     for note in notes:
         if not note.startswith("Nous free tier="):
@@ -351,20 +377,39 @@ def _print_inventory(entries: list[ModelEntry], notes: list[str]) -> None:
 
 
 def _print_probe_results(results: list[ProbeResult]) -> None:
+    """Print live probe results as aligned pipe-delimited tables inside code fences."""
+    COL_W = [15, 55, 20, 8, 6, 60]
+    HEADERS = ["Provider", "Model", "Status", "ms", "HTTP", "Detail"]
+
     print("\nLIVE MODEL TESTS")
-    print("status legend: AVAILABLE means a tiny chat request succeeded now; RATE_LIMITED/UPSTREAM_LIMITED mean not usable right now")
-    widths = {
-        "provider": max([8] + [len(result.provider) for result in results]),
-        "model": max([5] + [len(result.model) for result in results]),
-        "status": max([6] + [len(result.status) for result in results]),
-    }
-    header = f"{'provider':<{widths['provider']}}  {'model':<{widths['model']}}  {'status':<{widths['status']}}  ms     http  detail"
-    print(header)
-    print("-" * len(header))
-    for result in results:
-        ms = "" if result.latency_ms is None else str(result.latency_ms)
-        http = "" if result.http_status is None else str(result.http_status)
-        print(f"{result.provider:<{widths['provider']}}  {result.model:<{widths['model']}}  {result.status:<{widths['status']}}  {ms:<5}  {http:<4}  {result.error_summary}")
+    print("status: AVAILABLE=working now | UPSTREAM_LIMITED/RATE_LIMITED/AUTH_ERROR=not usable now | SKIPPED_NON_CHAT=not a text model\n")
+    print("```")
+
+    parts = []
+    for cw in COL_W:
+        parts.append("-" * (cw + 2))
+    sep_line = "|" + "|".join(parts) + "|"
+    hdr = "| " + " | ".join(h.ljust(cw) for h, cw in zip(HEADERS, COL_W)) + " |"
+    print(hdr)
+    print(sep_line)
+
+    for r in results:
+        ms = "" if r.latency_ms is None else str(r.latency_ms)
+        http = "" if r.http_status is None else str(r.http_status)
+        detail = _term_short_detail(r.error_summary, 60)
+        model = _term_short_detail(r.model, COL_W[1])
+        prov = r.provider[: COL_W[0]]
+        cells = [
+            prov.ljust(COL_W[0]),
+            model.ljust(COL_W[1]),
+            r.status.ljust(COL_W[2]),
+            ms.rjust(COL_W[3]),
+            http.rjust(COL_W[4]),
+            detail.ljust(COL_W[5]),
+        ]
+        print("| " + " | ".join(cells) + " |")
+
+    print("```")
 
 
 BENCH_STATUS_TITLES = {
@@ -382,8 +427,8 @@ BENCH_FOOTNOTES = {
 
 
 def _print_bench_tables(results: list[ProbeResult]) -> None:
-    SEP = "  "
-    COLS = ["Provider", "Model", "Context Window", "Terminal Bench", "SWE-Bench Verified", "LiveCode Bench"]
+    COL_W = [18, 55, 15, 16, 20, 16]
+    HEADERS = ["Provider", "Model", "Ctx", "Terminal Bench", "SWE-Bench Verified", "LiveCode Bench"]
 
     seen_footnotes: set[str] = set()
 
@@ -392,30 +437,36 @@ def _print_bench_tables(results: list[ProbeResult]) -> None:
         if not group:
             continue
 
-        rows: list[dict[str, str]] = []
+        print(f"\n{title}")
+        print()
+        print("```")
+
+        parts = []
+        for cw in COL_W:
+            parts.append("-" * (cw + 2))
+        sep_line = "|" + "|".join(parts) + "|"
+        hdr = "| " + " | ".join(h.ljust(cw) for h, cw in zip(HEADERS, COL_W)) + " |"
+        print(hdr)
+        print(sep_line)
+
         for r in group:
             b = _resolve_bench_data(r.model)
-            rows.append({
-                "Provider": b["provider"] if b["provider"] != "?" else r.provider,
-                "Model": r.model,
-                "Context Window": b["ctx"],
-                "Terminal Bench": b["tb"],
-                "SWE-Bench Verified": b["swe"],
-                "LiveCode Bench": b["lcb"],
-            })
             for ch in b["tb"] + b["swe"] + b["lcb"]:
                 if ch in BENCH_FOOTNOTES:
                     seen_footnotes.add(ch)
+            prov = (b["provider"] if b["provider"] != "?" else r.provider)[: COL_W[0]]
+            model = _term_short_detail(r.model, COL_W[1])
+            cells = [
+                prov.ljust(COL_W[0]),
+                model.ljust(COL_W[1]),
+                b["ctx"].ljust(COL_W[2]),
+                b["tb"].ljust(COL_W[3]),
+                b["swe"].ljust(COL_W[4]),
+                b["lcb"].ljust(COL_W[5]),
+            ]
+            print("| " + " | ".join(cells) + " |")
 
-        widths = {c: max(len(c), max(len(r[c]) for r in rows)) for c in COLS}
-        hdr = SEP.join(f"{c:<{widths[c]}}" for c in COLS)
-        rule = "-" * len(hdr)
-
-        print(f"\n{title}")
-        print(hdr)
-        print(rule)
-        for row in rows:
-            print(SEP.join(f"{row[c]:<{widths[c]}}" for c in COLS))
+        print("```")
 
     if seen_footnotes:
         print()
@@ -433,7 +484,115 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--sleep", type=float, default=0.5, help="Delay between probes to avoid self-inflicted rate limits. Default: 0.5.")
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     parser.add_argument("--quiet-no-tests", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("-o", "--output", type=str, default="", help="Path to write markdown report. Default: free_hermes_models_<timestamp>.md in the script directory.")
     return parser.parse_args(argv)
+
+
+def _md_escape(text: str) -> str:
+    """Escape pipe and special chars for markdown table cells."""
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+def _md_short_detail(text: str, limit: int = 80) -> str:
+    """Truncate error detail strings cleanly for table cells."""
+    cleaned = text.replace("\\n", " ").replace("\n", " ").strip()
+    while "  " in cleaned:
+        cleaned = cleaned.replace("  ", " ")
+    if len(cleaned) <= limit:
+        return _md_escape(cleaned)
+    # Try to break at a reasonable point
+    truncated = cleaned[: limit - 3].rsplit(" ", 1)[0] if " " in cleaned[:limit] else cleaned[: limit - 3]
+    return _md_escape(truncated) + "..."
+
+
+def _write_markdown_report(
+    path: str,
+    entries: list[ModelEntry],
+    notes: list[str],
+    results: list[ProbeResult],
+) -> None:
+    """Write a markdown report to *path*, mirroring the terminal output."""
+
+    lines: list[str] = []
+    lines.append("# Free Hermes Models Report")
+    lines.append(f"\n_Generated: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}_")
+    lines.append("")
+
+    # ── Inventory (table) ──
+    lines.append("## Connected Free Models\n")
+    lines.append("| Provider | Model |")
+    lines.append("|----------|-------|")
+    for entry in entries:
+        lines.append(f"| {entry.display_provider} | `{_md_escape(entry.model)}` |")
+    lines.append("")
+
+    for note in notes:
+        if not note.startswith("Nous free tier="):
+            lines.append(f"> {note}")
+
+    # ── Live Probe Results ──
+    lines.append("\n## Live Model Tests\n")
+    lines.append(
+        "_status legend: **AVAILABLE** means a tiny chat request succeeded now; "
+        "**RATE_LIMITED** / **UPSTREAM_LIMITED** / **AUTH_ERROR** mean not usable right now._\n"
+    )
+
+    lines.append("| Provider | Model | Status | Latency (ms) | HTTP | Detail |")
+    lines.append("|----------|-------|--------|-------------|------|--------|")
+    for result in results:
+        ms = str(result.latency_ms) if result.latency_ms is not None else ""
+        http = str(result.http_status) if result.http_status is not None else ""
+        lines.append(
+            f"| {result.provider} "
+            f"| `{_md_escape(result.model)}` "
+            f"| {result.status} "
+            f"| {ms} "
+            f"| {http} "
+            f"| {_md_short_detail(result.error_summary)} |"
+        )
+
+    # ── Benchmark Tables ──
+    seen_footnotes: set[str] = set()
+
+    for status, title in BENCH_STATUS_TITLES.items():
+        group = [r for r in results if r.status == status]
+        if not group:
+            continue
+
+        lines.append(f"\n## {title}\n")
+        lines.append("| Provider | Model | Context Window | Terminal Bench | SWE-Bench Verified | LiveCode Bench |")
+        lines.append("|----------|-------|---------------|----------------|-------------------|---------------|")
+
+        for r in group:
+            b = _resolve_bench_data(r.model)
+            for ch in b["tb"] + b["swe"] + b["lcb"]:
+                if ch in BENCH_FOOTNOTES:
+                    seen_footnotes.add(ch)
+            lines.append(
+                f"| {b['provider'] if b['provider'] != '?' else r.provider} "
+                f"| `{_md_escape(r.model)}` "
+                f"| {b['ctx']} "
+                f"| {b['tb']} "
+                f"| {b['swe']} "
+                f"| {b['lcb']} |"
+            )
+
+    if seen_footnotes:
+        lines.append("")
+        for ch in sorted(seen_footnotes):
+            lines.append(f"- {ch} {BENCH_FOOTNOTES[ch]}")
+
+    # ── Summary counts ──
+    counts: dict[str, int] = {}
+    for result in results:
+        counts[result.status] = counts.get(result.status, 0) + 1
+    if counts:
+        summary = ", ".join(f"**{status}** = {count}" for status, count in sorted(counts.items()))
+        lines.append(f"\n## Summary\n\n{summary}\n")
+
+    raw = "\n".join(lines) + "\n"
+    Path(path).write_text(raw, encoding="utf-8")
+    print(f"\nMarkdown report written to {path}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -482,6 +641,16 @@ def main(argv: list[str] | None = None) -> int:
         if counts:
             summary = ", ".join(f"{status}={count}" for status, count in sorted(counts.items()))
             print(f"\nSUMMARY: {summary}")
+
+    # ── Write markdown report ──
+    if args.output:
+        _write_markdown_report(args.output, entries, notes, results)
+    elif not args.json:
+        # Default path: script directory with timestamp
+        script_dir = Path(__file__).resolve().parent
+        default_path = str(script_dir / f"free_hermes_models_{time.strftime('%Y%m%d_%H%M%S')}.md")
+        _write_markdown_report(default_path, entries, notes, results)
+
     return 0
 
 
