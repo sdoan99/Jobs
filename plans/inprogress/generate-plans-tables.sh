@@ -9,7 +9,7 @@
 #   counts bytes not chars — multi-byte chars like em dash misalign columns).
 #   All cell values must be ASCII-only to guarantee perfect pipe alignment.
 #   When adding new columns, adjust the COL_WN variables and header list below.
-OUTPUT="/home/ubuntu/Jobs/plans/inprogress/plans-tables.md"
+OUTPUT="/home/ubuntu/Jobs/plans/inprogress/plans-tables-$(date +%Y%m%d).md"
 
 fmt_name() {
   local base
@@ -48,7 +48,7 @@ collect_rows() {
   for f in "$dir"/*; do
     [ -f "$f" ] || continue
     case "$(basename "$f")" in
-      SKILL.md|plans-reference.md|plans-tables.md|generate-plans-ref.sh|generate-plans-tables.sh)
+      SKILL.md|plans-reference.md|plans-tables-*.md|plans-tables.md|generate-plans-ref.sh|generate-plans-tables.sh)
         continue ;;
     esac
     name=$(fmt_name "$f")

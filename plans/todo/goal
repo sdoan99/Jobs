@@ -1,0 +1,91 @@
+Goal: Make GBrain the durable map of this codebase so future coding/refactor sessions start with context instead of rediscovery.
+
+Do not dump raw code into GBrain. Instead, inspect the repository and create curated markdown knowledge files that summarize architecture, data flows, execution order, shared dependencies, fragile assumptions, duplicate logic, and refactor targets.
+
+Tasks:
+
+1. Inspect the full repo structure.
+2. Identify the major systems, modules, scripts, entrypoints, output folders, shared utilities, configs, env vars, and generated artifacts.
+3. Create or update a GBrain docs folder with this structure:
+
+docs/
+  RESOLVER.md
+  system_map.md
+  architecture/
+  components/
+  data-flows/
+  decisions/
+  how-to/
+  plans/
+  reference/
+  refactor-targets/
+  runbooks/
+  known-issues/
+
+4. Create docs/RESOLVER.md explaining where each type of knowledge belongs, using a “one fact, one home” rule.
+
+5. Create docs/system_map.md with:
+- repo purpose
+- main entrypoints
+- execution order
+- top-level module map
+- important file paths
+- generated outputs
+- external dependencies
+- environment variables
+- agent warnings
+
+6. For each major module, create a markdown file under docs/components/ with:
+- purpose
+- key files
+- public functions/classes
+- dependencies
+- inputs and outputs
+- execution role
+- known risks
+- refactor opportunities
+- agent editing notes
+
+7. For each major workflow, create a markdown file under docs/data-flows/ with:
+- trigger or entrypoint
+- step-by-step flow
+- files read
+- files written
+- APIs/services called
+- error handling
+- generated artifacts
+- fragile assumptions
+
+8. Create docs/refactor-targets/duplicate-logic.md listing:
+- repeated functions
+- similar scripts
+- overlapping utilities
+- dead code candidates
+- suggested consolidation plan
+
+9. Create docs/reference/file-artifacts-map.md mapping:
+- source files
+- generated outputs
+- static assets
+- templates
+- config files
+- where each artifact is consumed
+
+10. Create docs/runbooks/agent-onboarding.md with:
+- how a future agent should understand the repo
+- what to read first
+- safe commands to run
+- risky commands to avoid
+- how to validate changes
+
+Important constraints:
+- Prefer concise, factual markdown.
+- Do not invent behavior. If unsure, write “Unknown” and list what should be checked.
+- Link to exact file paths whenever possible.
+- Avoid duplicating facts across files. Put each fact in its canonical location and link to it elsewhere.
+- Do not include large code blocks unless necessary.
+- Do not modify application logic unless explicitly needed to generate the docs.
+- After writing docs, run any available tests or static checks that are safe.
+- Provide a final summary of files created/updated and the top 10 insights about the codebase.
+
+After docs are created, run the appropriate GBrain sync/embed commands if available in this environment. If commands are not available, report the exact commands the user should run manually.

@@ -1,6 +1,6 @@
 # Plan Files Reference
 
-Generated 2026-05-27 22:20
+Generated 2026-05-28 21:53
 
 
 ### Jobs / Schema Plans
@@ -58,8 +58,6 @@ Generated 2026-05-27 22:20
 |------------------------------------------|------------------------------------------------------|------------|--------------------------------------------------|
 | ~/project92/plans/inprogress             | discordalerts-signal-journaling-integration          | 2%         | title: Plan - DiscordAlerts Signal Journaling    |
 |                                          |                                                      |            | Integration                                      |
-| ~/project92/plans/inprogress             | supabase-guest-regular-table-remediation             | 2%         | title: Plan - Supabase Guest/Regular Table       |
-|                                          |                                                      |            | Remediation                                      |
 | ~/project92/plans/inprogress             | tvadv-chart-best-practices-remediation               | 63%        | title: Plan - TVAdvChart TradingView Best-       |
 |                                          |                                                      |            | Practices Remediation                            |
 | ~/project92/plans/todo                   | Persistent_Memory_Integration                        | 0%         | Last Updated**: November 20, 2025                |
@@ -93,6 +91,8 @@ Generated 2026-05-27 22:20
 |                                          |                                                      |            | by-task.                                         |
 | ~/project92/plans/completed              | plan-schwab-udf-chart-widget-integration             | 82%        | title: Plan - Schwab UDF Chart Widget            |
 |                                          |                                                      |            | Integration                                      |
+| ~/project92/plans/completed              | supabase-guest-regular-table-remediation             | 25%        | title: Plan - Supabase Guest/Regular Table       |
+|                                          |                                                      |            | Remediation                                      |
 ```
 
 ### Hermes Plans
